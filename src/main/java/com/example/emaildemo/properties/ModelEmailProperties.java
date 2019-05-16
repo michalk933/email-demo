@@ -1,11 +1,11 @@
 package com.example.emaildemo.properties;
 
-import lombok.Value;
+import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import javax.validation.constraints.NotBlank;
 
-@Value
+@Data
 @ConfigurationProperties("email.model")
 public class ModelEmailProperties {
 

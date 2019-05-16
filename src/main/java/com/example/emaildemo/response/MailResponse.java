@@ -1,9 +1,9 @@
 package com.example.emaildemo.response;
 
 
-import lombok.Data;
+import lombok.Value;
 
-@Data
+@Value
 public class MailResponse {
 
     private String message;
