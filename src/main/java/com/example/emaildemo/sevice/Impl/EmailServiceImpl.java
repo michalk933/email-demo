@@ -2,18 +2,21 @@ package com.example.emaildemo.sevice.Impl;
 
 
 import com.example.emaildemo.dto.Email;
+import com.example.emaildemo.dto.MailRequest;
+import com.example.emaildemo.dto.Owner;
+import com.example.emaildemo.dto.Recipient;
 import com.example.emaildemo.exception.GeneralSqlException;
+import com.example.emaildemo.exception.SendEmailException;
 import com.example.emaildemo.properties.ModelEmailProperties;
 import com.example.emaildemo.repository.EmailRepository;
-import com.example.emaildemo.request.MailRequest;
-import com.example.emaildemo.response.MailResponse;
 import com.example.emaildemo.sevice.EmailService;
+import com.example.emaildemo.sevice.OwnerService;
+import com.example.emaildemo.sevice.RecipientService;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -38,23 +41,30 @@ public class EmailServiceImpl implements EmailService {
     private final Configuration configuration;
     private final EmailRepository emailRepository;
 
+
+    private final OwnerService ownerService;
+    private final RecipientService recipientService;
+
     private static final String NAME = "Name";
     private static final String LOCATION = "location";
 
     @Override
-    public MailResponse sendEmail(MailRequest request) {
-        Map<String, Object> model = this.getModelEmail();
+    public void send(long ownerId, long emailId) {
+        Owner owner = ownerService.getOwner(ownerId);
+        List<Recipient> recipients = recipientService.getRecipientsByOwnerId(ownerId);
+        Email email = this.getEmail(emailId);
         MimeMessage message = sender.createMimeMessage();
 
-        try {
-            this.createEmailTemplate(request, model, message);
-            sender.send(message);
-        } catch (MessagingException | IOException | TemplateException e) {
-            log.error("Something wrong during send email: %s", e);
-            return new MailResponse(String.format("Mail Sending failure: %s", request.getTo()), Boolean.FALSE);
-        }
-
-        return new MailResponse(String.format("Mail send to: %s", request.getTo()), Boolean.TRUE);
+        recipients
+                .stream()
+                .map(recipient -> MailRequest
+                        .builder()
+                        .from(owner.getEmail())
+                        .to(recipient.getEmail())
+                        .subject(email.getDescription())
+                        .name(email.getTopic())
+                        .build())
+                .forEach(mailRequest -> this.createEmailTemplate(mailRequest, message));
     }
 
     @Override
@@ -104,15 +114,30 @@ public class EmailServiceImpl implements EmailService {
         return emailRepository.save(newEmail);
     }
 
-    private void createEmailTemplate(MailRequest request, Map<String, Object> model, MimeMessage message)
-            throws IOException, TemplateException, MessagingException {
+    private void createEmailTemplate(MailRequest request, MimeMessage message) {
+        try {
+            Map<String, Object> model = this.getModelEmail();
+            String html = this.getTemplateEmail(model);
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    message,
+                    MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
+                    StandardCharsets.UTF_8.name()
+            );
+            this.buildMessageToSend(request, html, helper);
+        } catch (TemplateException e) {
+            throw new SendEmailException(String.format("Something wrong during make template email: %1$s", request));
+        } catch (IOException | MessagingException e) {
+            throw new SendEmailException(String.format("Something wrong during send email: %1$s", request));
+        }
+    }
+
+    private String getTemplateEmail(Map<String, Object> model) throws IOException, TemplateException {
         Template template = configuration.getTemplate("email-template.ftl");
-        String html = FreeMarkerTemplateUtils.processTemplateIntoString(template, model);
+        return FreeMarkerTemplateUtils.processTemplateIntoString(template, model);
+    }
 
-        MimeMessageHelper helper = new MimeMessageHelper(message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED,
-                StandardCharsets.UTF_8.name());
-
-        helper.addAttachment("logo.png", new ClassPathResource("logo.png"));
+    private void buildMessageToSend(MailRequest request, String html, MimeMessageHelper helper) throws MessagingException {
+//        helper.addAttachment("logo.png", new ClassPathResource("logo.png"));
         helper.setTo(request.getTo());
         helper.setText(html, true);
         helper.setSubject(request.getSubject());

@@ -1,8 +1,6 @@
 package com.example.emaildemo.controller;
 
 import com.example.emaildemo.dto.Email;
-import com.example.emaildemo.request.MailRequest;
-import com.example.emaildemo.response.MailResponse;
 import com.example.emaildemo.sevice.EmailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -18,8 +16,8 @@ public class EmailController {
     private final EmailService emailService;
 
     @PostMapping("/send")
-    public MailResponse sendEmail(@RequestBody MailRequest request) {
-        return emailService.sendEmail(request);
+    public void sedEmail(@RequestParam("ownerId") long ownerId, @RequestParam("emailId") long emailId) {
+        emailService.send(ownerId, emailId);
     }
 
     @GetMapping("/{emailId}")

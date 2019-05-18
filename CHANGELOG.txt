@@ -1,0 +1,1 @@
+- add new sample method to send email, to recipients

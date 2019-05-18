@@ -1,15 +1,13 @@
 package com.example.emaildemo.sevice;
 
 import com.example.emaildemo.dto.Email;
-import com.example.emaildemo.request.MailRequest;
-import com.example.emaildemo.response.MailResponse;
 
 import java.util.List;
 
 
 public interface EmailService {
 
-    MailResponse sendEmail(MailRequest request);
+    void send(long ownerId, long emailId);
 
     List<Email> getEmails();
 
